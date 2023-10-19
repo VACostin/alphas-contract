@@ -126,7 +126,7 @@ contract Stake is Ownable {
     constructor(address _tokenContract) {
         tokenAddress = _tokenContract;
         rewardPoolAddress = address(this);
-        rewardPoolOldBal = 1000000000 * 10 ** 18;
+        rewardPoolOldBal = 150000000000 * 10 ** 18;
         rewardPoolNewBal = rewardPoolOldBal;
     }
 
@@ -180,7 +180,11 @@ contract Stake is Ownable {
         uint256 _stakeid
     ) public view returns (uint) {
         require(TotalProfit[msg.sender] > 0, "Wallet Address is not Exist");
-        uint profit;
+        require(
+            staking[user][_stakeid]._amount > 0,
+            "Wallet Address is not Exist"
+        );
+        uint profit = 0;
         uint locktime = staking[user][_stakeid]._stakingEndtime;
         uint oneWeekLocktime = staking[user][_stakeid]._stakingStarttime +
             oneweek;
@@ -190,29 +194,23 @@ contract Stake is Ownable {
         uint threeWeekLocktime = staking[user][_stakeid]._stakingStarttime +
             oneweek *
             3;
-        require(
-            staking[user][_stakeid]._amount > 0,
-            "Wallet Address is not Exist"
-        );
 
-        for (uint i = 1; i <= lastStake; i++) {
-            if (block.timestamp >= locktime) {
-                if (block.timestamp >= locktime + oneweek) {
-                    profit =
-                        staking[user][_stakeid]._profit +
-                        (staking[user][_stakeid]._amount / 2);
-                } else {
-                    profit = staking[user][_stakeid]._profit;
-                }
-            } else if (block.timestamp > oneWeekLocktime) {
-                profit = (staking[user][_stakeid]._profit * 25) / 100;
-            } else if (block.timestamp > twoWeekLocktime) {
-                profit = (staking[user][_stakeid]._profit * 35) / 100;
-            } else if (block.timestamp > threeWeekLocktime) {
-                profit = (staking[user][_stakeid]._profit * 40) / 100;
+        if (block.timestamp >= locktime) {
+            if (block.timestamp >= locktime + oneweek) {
+                profit =
+                    staking[user][_stakeid]._profit +
+                    (staking[user][_stakeid]._amount / 2);
+            } else {
+                profit = staking[user][_stakeid]._profit;
             }
-            profit += profit;
+        } else if (block.timestamp >= threeWeekLocktime) {
+            profit = (staking[user][_stakeid]._profit * 40) / 100;
+        } else if (block.timestamp >= twoWeekLocktime) {
+            profit = (staking[user][_stakeid]._profit * 35) / 100;
+        } else if (block.timestamp >= oneWeekLocktime) {
+            profit = (staking[user][_stakeid]._profit * 25) / 100;
         }
+
         return profit;
     }
 
