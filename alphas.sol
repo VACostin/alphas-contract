@@ -889,14 +889,6 @@ contract alphas is Ownable {
                 fees = buyTax;
             } else if (automatedMarketMakerPairs[recipient] && isSell) {
                 if (!_isExcludedFromFee[sender]) {
-                    require(
-                        amount <= maxAmount,
-                        "Cannot sell more than max limit"
-                    );
-                    require(
-                        balanceOf(recipient) <= maxWallet,
-                        "Cannot hold more tokens than limit"
-                    );
                     sellTax = _calculateTax(amount, sellFee);
                     _transferTokens(sender, address(this), sellTax);
                 }
