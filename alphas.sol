@@ -876,11 +876,7 @@ contract alphas is Ownable {
             if (automatedMarketMakerPairs[sender] && isBuy) {
                 if (!_isExcludedFromFee[recipient]) {
                     require(
-                        amount <= maxAmount,
-                        "Cannot buy more than max limit"
-                    );
-                    require(
-                        balanceOf(recipient) <= maxWallet,
+                        balanceOf(recipient) + amount <= maxWallet,
                         "Cannot hold more tokens than limit"
                     );
                     buyTax = _calculateTax(amount, buyFee);
