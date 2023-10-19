@@ -305,7 +305,6 @@ contract alphas is Ownable {
     uint8 private constant _decimals = 18;
     uint256 private _totalSupply = 1000000000000 * 10 ** uint256(_decimals);
 
-    uint256 public maxAmount; // Max Buy/Sell Limit
     uint256 public maxWallet; // Max tokens in wallet
 
     mapping(address => uint256) internal _balances;
@@ -710,23 +709,19 @@ contract alphas is Ownable {
             updateMaxLimitActive && block.timestamp <= launchTime + 30 minutes
         ) {
             if (block.timestamp <= launchTime + 10 minutes) {
-                maxAmount = (totalSupply() * 280) / 100000;
                 maxWallet = (totalSupply() * 280) / 100000;
             } else if (
                 block.timestamp > launchTime + 10 minutes &&
                 block.timestamp <= launchTime + 20 minutes
             ) {
-                maxAmount = (totalSupply() * 550) / 100000;
                 maxWallet = (totalSupply() * 550) / 100000;
             } else if (
                 block.timestamp > launchTime + 20 minutes &&
                 block.timestamp <= launchTime + 30 minutes
             ) {
-                maxAmount = (totalSupply() * 1110) / 100000;
                 maxWallet = (totalSupply() * 1110) / 100000;
             }
         } else if (updateMaxLimitActive && launchTime != 0) {
-            maxAmount = totalSupply();
             maxWallet = totalSupply();
             updateMaxLimitActive = false;
         }
