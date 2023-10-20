@@ -125,7 +125,6 @@ contract Stake is Ownable {
 
     constructor(address _tokenContract) {
         tokenAddress = _tokenContract;
-        TokenI(tokenAddress).approve(address(this), 150000000000 * 10 ** 18);
         rewardPoolAddress = address(this);
     }
 
@@ -208,7 +207,8 @@ contract Stake is Ownable {
      */
     function numberOfStakeInstances() public view returns (uint256) {
         address user = msg.sender;
-        return activeStake[user];
+        uint256 userActiveStake = activeStake[user];
+        return userActiveStake;
     }
 
     /**
@@ -272,13 +272,14 @@ contract Stake is Ownable {
         );
         require(_stakeamount > 0, "Amount should be greater than 0");
         require(
-            TokenI(tokenAddress).allowance(user, address(this)) >= _stakeamount,
+            TokenI(tokenAddress).allowance(user, rewardPoolAddress) >=
+                _stakeamount,
             "Insufficient allowance."
         );
         require(
             TokenI(tokenAddress).transferFrom(
                 user,
-                address(this),
+                rewardPoolAddress,
                 _stakeamount
             ),
             "Token tranfer failed"
@@ -309,6 +310,7 @@ contract Stake is Ownable {
         require(_stakeid < activeStake[user], "Stake instance does not exist");
         uint256 userAmount = staking[user][_stakeid]._amount;
         uint256 withdrawAmount = viewWithdrawAmount(_stakeid);
+        uint256 userActiveStake = activeStake[user];
         require(
             TokenI(tokenAddress).transfer(user, withdrawAmount),
             "Token transfer failed"
@@ -319,8 +321,8 @@ contract Stake is Ownable {
         } else {
             _updatePool(userAmount - withdrawAmount, false);
         }
-        activeStake[user] = activeStake[user] - 1;
-        lastStake = activeStake[user];
+        activeStake[user] = userActiveStake - 1;
+        lastStake = userActiveStake - 1;
 
         staking[user][_stakeid]._id = staking[user][lastStake]._id;
         staking[user][_stakeid]._amount = staking[user][lastStake]._amount;
@@ -334,7 +336,7 @@ contract Stake is Ownable {
         staking[user][lastStake]._amount = 0;
         staking[user][lastStake]._startTime = 0;
         staking[user][lastStake]._claimTime = 0;
-        staking[user][_stakeid]._APY = 0;
+        staking[user][lastStake]._APY = 0;
         emit Unstake(_stakeid, user, withdrawAmount);
 
         return true;
@@ -346,8 +348,9 @@ contract Stake is Ownable {
 
     function claim(uint256 _stakeid) public returns (bool) {
         address user = msg.sender;
+        uint256 userActiveStake = activeStake[user];
         require(_stakeid >= 0, "Please set valid stakeid!");
-        require(_stakeid < activeStake[user], "Stake instance does not exist");
+        require(_stakeid < userActiveStake, "Stake instance does not exist");
         uint256 claimAmount = currentRewards(user, _stakeid);
         require(claimAmount > 0, "Cannot claim non zero amount");
         require(
@@ -368,8 +371,9 @@ contract Stake is Ownable {
         uint256 _stakeid
     ) public view returns (uint256) {
         address user = msg.sender;
+        uint256 userActiveStake = activeStake[user];
         require(_stakeid >= 0, "Please set valid stakeid!");
-        require(_stakeid < activeStake[user], "Stake instance does not exist");
+        require(_stakeid < userActiveStake, "Stake instance does not exist");
         uint32 oneWeek = 7 * 24 * 60 * 60;
         bool isPositive = true;
         uint256 currentTime = block.timestamp;
@@ -407,8 +411,9 @@ contract Stake is Ownable {
      */
     function viewPenalty(uint256 _stakeid) public view returns (uint256) {
         address user = msg.sender;
+        uint256 userActiveStake = activeStake[user];
         require(_stakeid >= 0, "Please set valid stakeid!");
-        require(_stakeid < activeStake[user], "Stake instance does not exist");
+        require(_stakeid < userActiveStake, "Stake instance does not exist");
         uint256 penaltyTime = staking[user][_stakeid]._startTime +
             7 *
             24 *
