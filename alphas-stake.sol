@@ -264,6 +264,18 @@ contract Stake is Ownable {
             "Insufficient tokens"
         );
         require(_stakeamount > 0, "Amount should be greater than 0");
+        require(
+            TokenI(tokenAddress).approve(user, _stakeamount),
+            "Token approval failed"
+        );
+        require(
+            TokenI(tokenAddress).transferFrom(
+                user,
+                address(this),
+                _stakeamount
+            ),
+            "Token tranfer failed"
+        );
         staking[user][activeStake[user]] = _staking(
             activeStake[user],
             block.timestamp,
@@ -271,7 +283,6 @@ contract Stake is Ownable {
             _stakeamount,
             APY
         );
-        TokenI(tokenAddress).transferFrom(msg.sender, address(this), _stakeamount);
         activeStake[user] = activeStake[user] + 1;
         emit StakeEvent(activeStake[user], address(this), _stakeamount);
         return true;
@@ -291,7 +302,10 @@ contract Stake is Ownable {
         require(_stakeid < activeStake[user], "Stake instance does not exist");
         uint256 userAmount = staking[user][_stakeid]._amount;
         uint256 withdrawAmount = viewWithdrawAmount(_stakeid);
-
+        require(
+            TokenI(tokenAddress).transfer(user, withdrawAmount),
+            "Token transfer failed"
+        );
         uint256 lastStake = 0;
         if (withdrawAmount >= userAmount) {
             _updatePool(withdrawAmount - userAmount, true);
@@ -314,7 +328,6 @@ contract Stake is Ownable {
         staking[user][lastStake]._startTime = 0;
         staking[user][lastStake]._claimTime = 0;
         staking[user][_stakeid]._APY = 0;
-        TokenI(tokenAddress).transfer(msg.sender, withdrawAmount);
         emit Unstake(_stakeid, user, withdrawAmount);
 
         return true;
@@ -330,7 +343,10 @@ contract Stake is Ownable {
         require(_stakeid < activeStake[user], "Stake instance does not exist");
         uint256 claimAmount = currentRewards(user, _stakeid);
         require(claimAmount > 0, "Cannot claim non zero amount");
-        TokenI(tokenAddress).transfer(msg.sender, claimAmount);
+        require(
+            TokenI(tokenAddress).transfer(user, claimAmount),
+            "Token transfer failed"
+        );
         _updatePool(claimAmount, false);
         staking[user][_stakeid]._claimTime = block.timestamp;
         emit Claim(_stakeid, user, claimAmount);
