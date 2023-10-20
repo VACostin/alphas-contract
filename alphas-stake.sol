@@ -116,7 +116,7 @@ contract Stake is Ownable {
     mapping(address => mapping(uint256 => _staking)) private staking;
     mapping(address => uint256) private activeStake;
     uint256 private APY = 100;
-    uint256 private rewardPoolBal = 150000000000 * 10 ** 18;
+    uint256 private rewardPoolBal = 150000000000;
 
     constructor(address _tokenContract) {
         tokenAddress = _tokenContract;
@@ -137,7 +137,7 @@ contract Stake is Ownable {
         uint256 decimalsAPY = 18;
         uint256 maxAPY = 100;
         uint256 minAPY = 8;
-        uint256 initialSupply = 150000000000 * 10 ** 18;
+        uint256 initialSupply = 150000000000;
         uint256 breakpoint = initialSupply / 10;
         if (isPositive) {
             rewardPoolBal += amount;
@@ -264,7 +264,6 @@ contract Stake is Ownable {
             "Insufficient tokens"
         );
         require(_stakeamount > 0, "Amount should be greater than 0");
-        _stakeamount = _stakeamount * 10 ** 18;
         staking[user][activeStake[user]] = _staking(
             activeStake[user],
             block.timestamp,
