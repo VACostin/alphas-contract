@@ -14,6 +14,11 @@ interface TokenI {
 
     function approve(address spender, uint256 amount) external returns (bool);
 
+    function allowance(
+        address owner,
+        address spender
+    ) external returns (uint256);
+
     function decimals() external view returns (uint8);
 }
 
@@ -120,6 +125,7 @@ contract Stake is Ownable {
 
     constructor(address _tokenContract) {
         tokenAddress = _tokenContract;
+        TokenI(tokenAddress).approve(address(this), 150000000000);
         rewardPoolAddress = address(this);
     }
 
@@ -253,6 +259,25 @@ contract Stake is Ownable {
     }
 
     /**
+    @dev approve staking contract
+     */
+
+    function approveStakingContract(uint256 amount) public returns (bool) {
+        require(amount > 0, "Amount should be greater than 0");
+        TokenI token = TokenI(tokenAddress);
+
+        // Check the current allowance
+        if (token.allowance(msg.sender, address(this)) < amount) {
+            require(
+                token.approve(address(this), amount),
+                "Token approval failed"
+            );
+        }
+
+        return true;
+    }
+
+    /**
      * @dev stake amount for particular duration.
      * parameters : _stakeamount ( need to set token amount for stake)
      * it will increase activeStake result of particular wallet.
@@ -264,6 +289,10 @@ contract Stake is Ownable {
             "Insufficient tokens"
         );
         require(_stakeamount > 0, "Amount should be greater than 0");
+        require(
+            TokenI(tokenAddress).allowance(user, address(this)) >= _stakeamount,
+            "Insufficient allowance"
+        );
         require(
             TokenI(tokenAddress).approve(user, _stakeamount),
             "Token approval failed"
