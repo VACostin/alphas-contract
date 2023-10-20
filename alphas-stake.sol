@@ -273,7 +273,8 @@ contract Stake is Ownable {
         );
         require(_stakeamount > 0, "Amount should be greater than 0");
         require(
-            TokenI(tokenAddress).allowance(user, rewardPoolAddress) >= _stakeamount,
+            TokenI(tokenAddress).allowance(user, rewardPoolAddress) >=
+                _stakeamount,
             "Insufficient allowance."
         );
         require(
