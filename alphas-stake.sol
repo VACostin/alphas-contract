@@ -240,6 +240,7 @@ contract Stake is Ownable {
             if (timeDifference <= oneMonth) {
                 alpha = timeDifference;
             } else {
+                alpha = oneMonth;
                 beta = timeDifference - oneMonth;
             }
             rewards =
