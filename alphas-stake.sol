@@ -121,7 +121,7 @@ contract Stake is Ownable {
     mapping(address => mapping(uint256 => _staking)) private staking;
     mapping(address => uint256) private activeStake;
     uint256 private APY = 100;
-    uint256 private rewardPoolBal = 150000000000;
+    uint256 private rewardPoolBal = 150000000000 * 10 ** 18;
 
     constructor(address _tokenContract) {
         tokenAddress = _tokenContract;
@@ -139,10 +139,9 @@ contract Stake is Ownable {
      * @dev updates pool and apy.
      */
     function _updatePool(uint256 amount, bool isPositive) internal {
-        uint256 decimalsAPY = 18;
         uint256 maxAPY = 100;
         uint256 minAPY = 8;
-        uint256 initialSupply = 150000000000;
+        uint256 initialSupply = 150000000000 * 10 ** 18;
         uint256 breakpoint = initialSupply / 10;
         if (isPositive) {
             rewardPoolBal += amount;
@@ -155,9 +154,9 @@ contract Stake is Ownable {
         if (rewardPoolBal >= breakpoint) {
             APY =
                 minAPY +
-                ((((rewardPoolBal - breakpoint) * 10 ** decimalsAPY) /
+                ((((rewardPoolBal - breakpoint) * 10 ** 18) /
                     (initialSupply - breakpoint)) * (maxAPY - minAPY)) /
-                10 ** decimalsAPY;
+                10 ** 18;
         } else {
             APY = minAPY;
         }
@@ -262,6 +261,7 @@ contract Stake is Ownable {
      * @dev stake amount for particular duration.
      * parameters : _stakeamount ( need to set token amount for stake)
      * it will increase activeStake result of particular wallet.
+     * NOTE: _stakeamount must be inserted without decimals
      */
     function stake(uint256 _stakeamount) public returns (bool) {
         address user = msg.sender;
@@ -272,8 +272,7 @@ contract Stake is Ownable {
         );
         require(_stakeamount > 0, "Amount should be greater than 0");
         require(
-            TokenI(tokenAddress).allowance(user, rewardPoolAddress) >=
-                _stakeamount,
+            TokenI(tokenAddress).allowance(user, rewardPoolAddress) >= _stakeamount,
             "Insufficient allowance."
         );
         require(
@@ -311,18 +310,17 @@ contract Stake is Ownable {
         uint256 userAmount = staking[user][_stakeid]._amount;
         uint256 withdrawAmount = viewWithdrawAmount(_stakeid);
         uint256 userActiveStake = activeStake[user];
+        uint256 lastStake = userActiveStake - 1;
         require(
             TokenI(tokenAddress).transfer(user, withdrawAmount),
             "Token transfer failed"
         );
-        uint256 lastStake = 0;
         if (withdrawAmount >= userAmount) {
             _updatePool(withdrawAmount - userAmount, true);
         } else {
             _updatePool(userAmount - withdrawAmount, false);
         }
-        activeStake[user] = userActiveStake - 1;
-        lastStake = userActiveStake - 1;
+        activeStake[user] = lastStake;
 
         staking[user][_stakeid]._id = staking[user][lastStake]._id;
         staking[user][_stakeid]._amount = staking[user][lastStake]._amount;
@@ -338,7 +336,6 @@ contract Stake is Ownable {
         staking[user][lastStake]._claimTime = 0;
         staking[user][lastStake]._APY = 0;
         emit Unstake(_stakeid, user, withdrawAmount);
-
         return true;
     }
 
