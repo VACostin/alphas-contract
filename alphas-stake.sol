@@ -272,7 +272,7 @@ contract Stake is Ownable {
             _stakeamount,
             APY
         );
-        // TokenI(tokenAddress).transferFrom(user, address(this), _stakeamount);
+        TokenI(tokenAddress).transferFrom(user, address(this), _stakeamount);
         activeStake[user] = activeStake[user] + 1;
         emit StakeEvent(activeStake[user], address(this), _stakeamount);
         return true;
@@ -315,7 +315,7 @@ contract Stake is Ownable {
         staking[user][lastStake]._startTime = 0;
         staking[user][lastStake]._claimTime = 0;
         staking[user][_stakeid]._APY = 0;
-        // TokenI(tokenAddress).transfer(user, withdrawAmount);
+        TokenI(tokenAddress).transfer(user, withdrawAmount);
         emit Unstake(_stakeid, user, withdrawAmount);
 
         return true;
@@ -331,7 +331,7 @@ contract Stake is Ownable {
         require(_stakeid < activeStake[user], "Stake instance does not exist");
         uint256 claimAmount = currentRewards(user, _stakeid);
         require(claimAmount > 0, "Cannot claim non zero amount");
-        // TokenI(tokenAddress).transfer(user, claimAmount);
+        TokenI(tokenAddress).transfer(user, claimAmount);
         _updatePool(claimAmount, false);
         staking[user][_stakeid]._claimTime = block.timestamp;
         emit Claim(_stakeid, user, claimAmount);
