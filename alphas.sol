@@ -332,7 +332,7 @@ contract alphas is Ownable {
     uint256 public lotteryPercent = 20000; //20000 = 20%
     uint256 public burnPercent = 20000; //20000 = 20%
 
-    uint256 public _taxThreshold = 10000 * 10 ** uint256(_decimals); // Threshold for sending eth to wallets
+    uint256 public _taxThreshold = 5000000000 * 10 ** uint256(_decimals); // Threshold for sending eth to wallets
 
     IUniswapV2Router02 public immutable uniswapV2Router;
     address public immutable _uniswapPair;
