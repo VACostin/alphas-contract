@@ -168,10 +168,10 @@ contract Stake is Ownable {
     /**
      * @dev returns stake instance data
      */
-    function getStakingsWithRewards(
-        address user
-    ) public view returns (_stakingWithReward[] memory) {
+    function getStakingsWithRewards() public view returns (_stakingWithReward[] memory) {
+        address user = msg.sender;
         uint256 userActiveStake = activeStake[user];
+        require(userActiveStake > 0, "No active stake instances found");
         _stakingWithReward[]
             memory stakingsWithRewards = new _stakingWithReward[](
                 userActiveStake
@@ -294,13 +294,13 @@ contract Stake is Ownable {
         require(_stakeid > 0, "Please set valid stakeid!");
         uint256 userAmount = staking[user][_stakeid]._amount;
         uint256 withdrawAmount = viewWithdrawAmount(_stakeid);
+
         uint256 lastStake = 0;
         if (withdrawAmount >= userAmount) {
             _updatePool(withdrawAmount - userAmount, true);
         } else {
             _updatePool(userAmount - withdrawAmount, false);
         }
-
         activeStake[user] = activeStake[user] - 1;
         lastStake = activeStake[user];
 
@@ -317,7 +317,6 @@ contract Stake is Ownable {
         staking[user][lastStake]._startTime = 0;
         staking[user][lastStake]._claimTime = 0;
         staking[user][_stakeid]._APY = 0;
-
         TokenI(tokenAddress).transfer(user, withdrawAmount);
         emit Unstake(_stakeid, user, withdrawAmount);
 
@@ -358,9 +357,6 @@ contract Stake is Ownable {
         uint256 currentTime = block.timestamp;
         uint256 startTime = staking[user][_stakeid]._startTime;
         uint256 locktime = startTime + 30 * 24 * 60 * 60;
-        uint256 oneWeekLocktime = startTime + oneWeek;
-        uint256 twoWeekLocktime = startTime + oneWeek * 2;
-        uint256 threeWeekLocktime = startTime + oneWeek * 3;
         uint256 penalty = (staking[user][_stakeid]._amount * 5) / 100;
         uint256 userAmount = staking[user][_stakeid]._amount;
         uint256 userRewards = currentRewards(user, _stakeid);
@@ -369,12 +365,12 @@ contract Stake is Ownable {
         require(userAmount > 0, "Stake instance does not exist!");
         require(_stakeid >= 0, "Please set valid stakeid!");
 
-        if (currentTime < oneWeekLocktime) {
+        if (currentTime < startTime + oneWeek) {
             poolModifier += penalty;
             isPositive = false;
-        } else if (currentTime < twoWeekLocktime) {
+        } else if (currentTime < startTime + oneWeek * 2) {
             poolModifier += (userRewards * 25) / 100;
-        } else if (currentTime < threeWeekLocktime) {
+        } else if (currentTime < startTime + oneWeek * 3) {
             poolModifier += (userRewards * 35) / 100;
         } else if (currentTime < locktime) {
             poolModifier += (userRewards * 40) / 100;
