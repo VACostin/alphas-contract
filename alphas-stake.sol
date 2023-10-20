@@ -113,8 +113,8 @@ contract Stake is Ownable {
     }
     address public rewardPoolAddress;
     address public tokenAddress = address(0);
-    mapping(address => mapping(uint256 => _staking)) public staking;
-    mapping(address => uint256) public activeStake;
+    mapping(address => mapping(uint256 => _staking)) private staking;
+    mapping(address => uint256) private activeStake;
     uint256 private APY = 100;
     uint256 private rewardPoolBal = 150000000000 * 10 ** 18;
 
