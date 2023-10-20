@@ -115,18 +115,8 @@ contract Stake is Ownable {
     address public tokenAddress = address(0);
     mapping(address => mapping(uint256 => _staking)) public staking;
     mapping(address => uint256) public activeStake;
-    uint8 private decimalsAPY = 18;
-    uint256 private maxAPY = 100;
-    uint256 private minAPY = 8;
-    uint256 private APY = maxAPY;
-    uint256 private initialSupply = 150000000000 * 10 ** 18;
-    uint256 breakpoint = initialSupply / 10;
-    uint256 private rewardPoolBal = initialSupply;
-    uint256 private stakeBalance;
-    uint256 private lastStake = 0;
-    uint32 private oneWeek = 7 * 24 * 60 * 60;
-    uint32 private oneMonth = 30 * 24 * 60 * 60;
-    uint32 private oneYear = 365 * 24 * 60 * 60;
+    uint256 private APY = 100;
+    uint256 private rewardPoolBal = 150000000000 * 10 ** 18;
 
     constructor(address _tokenContract) {
         tokenAddress = _tokenContract;
@@ -144,6 +134,11 @@ contract Stake is Ownable {
      * @dev updates pool and apy.
      */
     function _updatePool(uint256 amount, bool isPositive) internal {
+        uint256 decimalsAPY = 18;
+        uint256 maxAPY = 100;
+        uint256 minAPY = 8;
+        uint256 initialSupply = 150000000000 * 10 ** 18;
+        uint256 breakpoint = initialSupply / 10;
         if (isPositive) {
             rewardPoolBal += amount;
         } else {
@@ -218,10 +213,16 @@ contract Stake is Ownable {
             staking[user][_stakeid]._amount > 0,
             "Stake instance does not exist"
         );
+        uint32 oneMonth = 30 * 24 * 60 * 60;
+        uint32 oneYear = 365 * 24 * 60 * 60;
         uint256 currentTime = block.timestamp;
         uint256 rewards = 0;
         uint256 locktime = staking[user][_stakeid]._startTime + oneMonth;
-        uint256 oneWeekLocktime = staking[user][_stakeid]._startTime + oneWeek;
+        uint256 oneWeekLocktime = staking[user][_stakeid]._startTime +
+            7 *
+            24 *
+            60 *
+            60;
         uint256 userStartTime = staking[user][_stakeid]._startTime;
         uint256 userClaimTime = staking[user][_stakeid]._claimTime;
         uint256 userAmount = staking[user][_stakeid]._amount;
@@ -293,6 +294,7 @@ contract Stake is Ownable {
         require(_stakeid > 0, "Please set valid stakeid!");
         uint256 userAmount = staking[user][_stakeid]._amount;
         uint256 withdrawAmount = viewWithdrawAmount(_stakeid);
+        uint256 lastStake = 0;
         if (withdrawAmount >= userAmount) {
             _updatePool(withdrawAmount - userAmount, true);
         } else {
@@ -351,9 +353,11 @@ contract Stake is Ownable {
         uint256 _stakeid
     ) public view returns (uint256) {
         address user = msg.sender;
+        uint32 oneWeek = 7 * 24 * 60 * 60;
+        bool isPositive = true;
         uint256 currentTime = block.timestamp;
         uint256 startTime = staking[user][_stakeid]._startTime;
-        uint256 locktime = startTime + oneMonth;
+        uint256 locktime = startTime + 30 * 24 * 60 * 60;
         uint256 oneWeekLocktime = startTime + oneWeek;
         uint256 twoWeekLocktime = startTime + oneWeek * 2;
         uint256 threeWeekLocktime = startTime + oneWeek * 3;
@@ -362,7 +366,6 @@ contract Stake is Ownable {
         uint256 userRewards = currentRewards(user, _stakeid);
         uint256 withdrawAmount = userAmount;
         uint256 poolModifier = 0;
-        bool isPositive = true;
         require(userAmount > 0, "Stake instance does not exist!");
         require(_stakeid >= 0, "Please set valid stakeid!");
 
@@ -392,7 +395,11 @@ contract Stake is Ownable {
      */
     function viewPenalty(uint256 _stakeid) public view returns (uint256) {
         address user = msg.sender;
-        uint256 penaltyTime = staking[user][_stakeid]._startTime + oneWeek;
+        uint256 penaltyTime = staking[user][_stakeid]._startTime +
+            7 *
+            24 *
+            60 *
+            60;
         uint256 penalty = 0;
         require(
             staking[user][_stakeid]._amount > 0,
