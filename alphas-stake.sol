@@ -107,6 +107,10 @@ contract Stake is Ownable {
         uint256 _amount;
         uint256 _APY;
     }
+    struct _stakingWithReward {
+        _staking _stakingData;
+        uint256 _currentRewards;
+    }
     address public rewardPoolAddress;
     address public tokenAddress = address(0);
     mapping(address => mapping(uint256 => _staking)) public staking;
@@ -139,7 +143,7 @@ contract Stake is Ownable {
     /**
      * @dev updates pool and apy.
      */
-    function _updateRewards(uint256 amount, bool isPositive) internal {
+    function _updatePool(uint256 amount, bool isPositive) internal {
         if (isPositive) {
             rewardPoolBal += amount;
         } else {
@@ -164,6 +168,26 @@ contract Stake is Ownable {
      */
     function currentAPY() public view returns (uint) {
         return APY;
+    }
+
+    /**
+     * @dev returns stake instance data
+     */
+    function getStakingsWithRewards(
+        address user
+    ) public view returns (_stakingWithReward[] memory) {
+        uint256 userActiveStake = activeStake[user];
+        _stakingWithReward[]
+            memory stakingsWithRewards = new _stakingWithReward[](
+                userActiveStake
+            );
+        for (uint256 i = 0; i < userActiveStake; i++) {
+            stakingsWithRewards[i] = _stakingWithReward({
+                _stakingData: staking[user][i],
+                _currentRewards: currentRewards(user, i)
+            });
+        }
+        return stakingsWithRewards;
     }
 
     /**
@@ -270,9 +294,9 @@ contract Stake is Ownable {
         uint256 userAmount = staking[user][_stakeid]._amount;
         uint256 withdrawAmount = viewWithdrawAmount(_stakeid);
         if (withdrawAmount >= userAmount) {
-            _updateRewards(withdrawAmount - userAmount, true);
+            _updatePool(withdrawAmount - userAmount, true);
         } else {
-            _updateRewards(userAmount - withdrawAmount, false);
+            _updatePool(userAmount - withdrawAmount, false);
         }
 
         activeStake[user] = activeStake[user] - 1;
@@ -310,11 +334,12 @@ contract Stake is Ownable {
             staking[user][_stakeid]._amount > 0,
             "Stake instance does not exist"
         );
-        uint256 rewards = currentRewards(user, _stakeid);
-        require(rewards > 0, "Cannot claim non zero amount");
-        TokenI(tokenAddress).transfer(user, rewards);
+        uint256 claimAmount = currentRewards(user, _stakeid);
+        require(claimAmount > 0, "Cannot claim non zero amount");
+        TokenI(tokenAddress).transfer(user, claimAmount);
+        _updatePool(claimAmount, false);
         staking[user][_stakeid]._claimTime = block.timestamp;
-        emit Claim(_stakeid, user, rewards);
+        emit Claim(_stakeid, user, claimAmount);
         return true;
     }
 
