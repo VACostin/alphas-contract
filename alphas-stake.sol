@@ -168,7 +168,11 @@ contract Stake is Ownable {
     /**
      * @dev returns stake instance data
      */
-    function getStakingsWithRewards() public view returns (_stakingWithReward[] memory) {
+    function getStakingsWithRewards()
+        public
+        view
+        returns (_stakingWithReward[] memory)
+    {
         address user = msg.sender;
         uint256 userActiveStake = activeStake[user];
         require(userActiveStake > 0, "No active stake instances found");
@@ -208,11 +212,7 @@ contract Stake is Ownable {
         uint256 _stakeid
     ) public view returns (uint) {
         require(_stakeid >= 0, "Please set valid stakeid!");
-        require(activeStake[user] < _stakeid, "Stake instance does not exist");
-        require(
-            staking[user][_stakeid]._amount > 0,
-            "Stake instance does not exist"
-        );
+        require(_stakeid < activeStake[user], "Stake instance does not exist");
         uint32 oneMonth = 30 * 24 * 60 * 60;
         uint32 oneYear = 365 * 24 * 60 * 60;
         uint256 currentTime = block.timestamp;
@@ -271,7 +271,7 @@ contract Stake is Ownable {
             _stakeamount,
             APY
         );
-        TokenI(tokenAddress).transferFrom(user, address(this), _stakeamount);
+        // TokenI(tokenAddress).transferFrom(user, address(this), _stakeamount);
         activeStake[user] = activeStake[user] + 1;
         emit StakeEvent(activeStake[user], address(this), _stakeamount);
         return true;
@@ -287,11 +287,8 @@ contract Stake is Ownable {
      */
     function unstake(uint256 _stakeid) public returns (bool) {
         address user = msg.sender;
-        require(
-            staking[user][_stakeid]._amount > 0,
-            "Stake instance does not exist!"
-        );
-        require(_stakeid > 0, "Please set valid stakeid!");
+        require(_stakeid >= 0, "Please set valid stakeid!");
+        require(_stakeid < activeStake[user], "Stake instance does not exist");
         uint256 userAmount = staking[user][_stakeid]._amount;
         uint256 withdrawAmount = viewWithdrawAmount(_stakeid);
 
@@ -317,7 +314,7 @@ contract Stake is Ownable {
         staking[user][lastStake]._startTime = 0;
         staking[user][lastStake]._claimTime = 0;
         staking[user][_stakeid]._APY = 0;
-        TokenI(tokenAddress).transfer(user, withdrawAmount);
+        // TokenI(tokenAddress).transfer(user, withdrawAmount);
         emit Unstake(_stakeid, user, withdrawAmount);
 
         return true;
@@ -330,14 +327,10 @@ contract Stake is Ownable {
     function claim(uint256 _stakeid) public returns (bool) {
         address user = msg.sender;
         require(_stakeid >= 0, "Please set valid stakeid!");
-        require(activeStake[user] <= _stakeid, "Stake instance does not exist");
-        require(
-            staking[user][_stakeid]._amount > 0,
-            "Stake instance does not exist"
-        );
+        require(_stakeid < activeStake[user], "Stake instance does not exist");
         uint256 claimAmount = currentRewards(user, _stakeid);
         require(claimAmount > 0, "Cannot claim non zero amount");
-        TokenI(tokenAddress).transfer(user, claimAmount);
+        // TokenI(tokenAddress).transfer(user, claimAmount);
         _updatePool(claimAmount, false);
         staking[user][_stakeid]._claimTime = block.timestamp;
         emit Claim(_stakeid, user, claimAmount);
@@ -352,6 +345,8 @@ contract Stake is Ownable {
         uint256 _stakeid
     ) public view returns (uint256) {
         address user = msg.sender;
+        require(_stakeid >= 0, "Please set valid stakeid!");
+        require(_stakeid < activeStake[user], "Stake instance does not exist");
         uint32 oneWeek = 7 * 24 * 60 * 60;
         bool isPositive = true;
         uint256 currentTime = block.timestamp;
@@ -362,8 +357,6 @@ contract Stake is Ownable {
         uint256 userRewards = currentRewards(user, _stakeid);
         uint256 withdrawAmount = userAmount;
         uint256 poolModifier = 0;
-        require(userAmount > 0, "Stake instance does not exist!");
-        require(_stakeid >= 0, "Please set valid stakeid!");
 
         if (currentTime < startTime + oneWeek) {
             poolModifier += penalty;
@@ -391,6 +384,8 @@ contract Stake is Ownable {
      */
     function viewPenalty(uint256 _stakeid) public view returns (uint256) {
         address user = msg.sender;
+        require(_stakeid >= 0, "Please set valid stakeid!");
+        require(_stakeid < activeStake[user], "Stake instance does not exist");
         uint256 penaltyTime = staking[user][_stakeid]._startTime +
             7 *
             24 *
