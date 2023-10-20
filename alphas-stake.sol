@@ -201,7 +201,8 @@ contract Stake is Ownable {
      * @dev returns the number of stake instances tied to a wallet.
      */
     function numberOfStakeInstances() public view returns (uint256) {
-        return activeStake[msg.sender];
+        address user = msg.sender;
+        return activeStake[user];
     }
 
     /**
