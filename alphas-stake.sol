@@ -102,116 +102,128 @@ contract Ownable {
 contract Stake is Ownable {
     struct _staking {
         uint256 _id;
-        uint256 _stakingStarttime;
-        uint256 _stakingEndtime;
+        uint256 _startTime;
+        uint256 _claimTime;
         uint256 _amount;
-        uint256 _profit;
-        uint256 _RewardPercentage;
+        uint256 _APY;
     }
     address public rewardPoolAddress;
     address public tokenAddress = address(0);
     mapping(address => mapping(uint256 => _staking)) public staking;
     mapping(address => uint256) public activeStake;
-    mapping(address => uint256) public TotalProfit;
-    uint256 private rewardPercentage = 8333;
-    uint256 private currentAPYpercentage = 100000;
-    uint256 private bonusPercentage;
-    uint256 private rewardPoolOldBal;
-    uint256 private rewardPoolNewBal;
-    uint256 private stakebalance;
+    uint8 private decimalsAPY = 18;
+    uint256 private maxAPY = 100;
+    uint256 private minAPY = 8;
+    uint256 private APY = maxAPY;
+    uint256 private initialSupply = 150000000000 * 10 ** 18;
+    uint256 breakpoint = initialSupply / 10;
+    uint256 private rewardPoolBal = initialSupply;
+    uint256 private stakeBalance;
     uint256 private lastStake = 0;
-    uint256 private onemonth = (31 * 1 * (24 * 60 * 60));
-    uint256 private oneweek = (7 * (24 * 60 * 60));
+    uint32 private oneWeek = 7 * 24 * 60 * 60;
+    uint32 private oneMonth = 30 * 24 * 60 * 60;
+    uint32 private oneYear = 365 * 24 * 60 * 60;
 
     constructor(address _tokenContract) {
         tokenAddress = _tokenContract;
         rewardPoolAddress = address(this);
-        rewardPoolOldBal = 150000000000 * 10 ** 18;
-        rewardPoolNewBal = rewardPoolOldBal;
     }
 
     /**
      * @dev To show contract event  .
      */
     event StakeEvent(uint256 _stakeid, address _to, uint _stakeamount);
-    event unstake(uint256 _stakeid, address _to, uint _amount);
+    event Unstake(uint256 _stakeid, address _to, uint _amount);
+    event Claim(uint256 _stakeid, address _to, uint _claimamount);
 
     /**
-     * @dev returns number of stake, done by particular wallet .
+     * @dev updates pool and apy.
      */
-    function TotalStake() public view returns (uint256) {
+    function _updateRewards(uint256 amount, bool isPositive) internal {
+        if (isPositive) {
+            rewardPoolBal += amount;
+        } else {
+            rewardPoolBal -= amount;
+        }
+        if (rewardPoolBal >= initialSupply) {
+            APY = maxAPY;
+        }
+        if (rewardPoolBal >= breakpoint) {
+            APY =
+                minAPY +
+                ((((rewardPoolBal - breakpoint) * 10 ** decimalsAPY) /
+                    (initialSupply - breakpoint)) * (maxAPY - minAPY)) /
+                10 ** decimalsAPY;
+        } else {
+            APY = minAPY;
+        }
+    }
+
+    /**
+     * @dev returns APY for new users.
+     */
+    function currentAPY() public view returns (uint) {
+        return APY;
+    }
+
+    /**
+     * @dev return current pool balance.
+     *
+     */
+    function viewRewardPoolBalance() public view returns (uint) {
+        return rewardPoolBal;
+    }
+
+    /**
+     * @dev returns the number of stake instances tied to a wallet.
+     */
+    function numberOfStakeInstances() public view returns (uint256) {
         return activeStake[msg.sender];
     }
 
     /**
-     * @dev return APY wise staking percentage.
-     *
+     * @dev returns current rewards for given stake instance
      */
-    function currentAPY() public view returns (uint) {
-        if ((rewardPoolNewBal * 100 * 1000) / rewardPoolOldBal >= 8000)
-            return (rewardPoolNewBal * 100 * 1000) / rewardPoolOldBal;
-        else return 8000;
-    }
-
-    /**
-     * @dev return month wise staking percentage.
-     *
-     */
-    function rewardInPercentage() public view returns (uint) {
-        if (((rewardPoolNewBal * 100 * 1000) / rewardPoolOldBal) / 12 >= 6667)
-            return ((rewardPoolNewBal * 100 * 1000) / rewardPoolOldBal) / 12;
-        else return 6667;
-    }
-
-    /**
-     * @dev return only Reward Balance from this Stake contract.
-     *
-     */
-    function viewRewardPoolBalance() public view returns (uint) {
-        return rewardPoolNewBal;
-    }
-
-    /**
-     * @dev returns total staking wallet profited amount
-     *
-     */
-    function totalProfitedAmt(
+    function currentRewards(
         address user,
         uint256 _stakeid
     ) public view returns (uint) {
-        require(TotalProfit[msg.sender] > 0, "Wallet Address is not Exist");
+        require(_stakeid >= 0, "Please set valid stakeid!");
+        require(activeStake[user] < _stakeid, "Stake instance does not exist");
         require(
             staking[user][_stakeid]._amount > 0,
-            "Wallet Address is not Exist"
+            "Stake instance does not exist"
         );
-        uint profit = 0;
-        uint locktime = staking[user][_stakeid]._stakingEndtime;
-        uint oneWeekLocktime = staking[user][_stakeid]._stakingStarttime +
-            oneweek;
-        uint twoWeekLocktime = staking[user][_stakeid]._stakingStarttime +
-            oneweek *
-            2;
-        uint threeWeekLocktime = staking[user][_stakeid]._stakingStarttime +
-            oneweek *
-            3;
-
-        if (block.timestamp >= locktime) {
-            if (block.timestamp >= locktime + oneweek) {
-                profit =
-                    staking[user][_stakeid]._profit +
-                    (staking[user][_stakeid]._amount / 2);
+        uint256 currentTime = block.timestamp;
+        uint256 rewards = 0;
+        uint256 locktime = staking[user][_stakeid]._startTime + oneMonth;
+        uint256 oneWeekLocktime = staking[user][_stakeid]._startTime + oneWeek;
+        uint256 userStartTime = staking[user][_stakeid]._startTime;
+        uint256 userClaimTime = staking[user][_stakeid]._claimTime;
+        uint256 userAmount = staking[user][_stakeid]._amount;
+        uint256 userAPY = staking[user][_stakeid]._APY;
+        if (currentTime >= locktime) {
+            uint256 timeDifference = userClaimTime - userStartTime;
+            uint256 alpha = 0;
+            uint256 beta = 0;
+            if (timeDifference <= oneMonth) {
+                alpha = timeDifference;
             } else {
-                profit = staking[user][_stakeid]._profit;
+                beta = timeDifference - oneMonth;
             }
-        } else if (block.timestamp >= threeWeekLocktime) {
-            profit = (staking[user][_stakeid]._profit * 40) / 100;
-        } else if (block.timestamp >= twoWeekLocktime) {
-            profit = (staking[user][_stakeid]._profit * 35) / 100;
-        } else if (block.timestamp >= oneWeekLocktime) {
-            profit = (staking[user][_stakeid]._profit * 25) / 100;
+            rewards =
+                (userAmount *
+                    userAPY *
+                    ((oneMonth - alpha) +
+                        ((currentTime - (locktime + beta)) * 3) /
+                        2)) /
+                (100 * oneYear);
+        } else if (currentTime >= oneWeekLocktime) {
+            rewards =
+                (userAmount * userAPY * (currentTime - userClaimTime)) /
+                (100 * oneYear);
         }
-
-        return profit;
+        return rewards;
     }
 
     /**
@@ -219,42 +231,24 @@ contract Stake is Ownable {
      * parameters : _stakeamount ( need to set token amount for stake)
      * it will increase activeStake result of particular wallet.
      */
-    function stake(uint _stakeamount) public returns (bool) {
+    function stake(uint256 _stakeamount) public returns (bool) {
+        address user = msg.sender;
         require(
-            TokenI(tokenAddress).balanceOf(msg.sender) >= _stakeamount,
+            TokenI(tokenAddress).balanceOf(user) >= _stakeamount,
             "Insufficient tokens"
         );
-        require(_stakeamount > 0, "Amount should be greater then 0");
-
+        require(_stakeamount > 0, "Amount should be greater than 0");
         _stakeamount = _stakeamount * 10 ** 18;
-        rewardPoolOldBal = rewardPoolNewBal;
-        uint profit = (_stakeamount * rewardPercentage) / 100000;
-        TotalProfit[msg.sender] = TotalProfit[msg.sender] + profit;
-
-        staking[msg.sender][activeStake[msg.sender]] = _staking(
-            activeStake[msg.sender],
+        staking[user][activeStake[user]] = _staking(
+            activeStake[user],
             block.timestamp,
-            block.timestamp + (30 * (24 * 60 * 60)),
+            block.timestamp,
             _stakeamount,
-            profit,
-            rewardPercentage
+            APY
         );
-
-        TokenI(tokenAddress).transferFrom(
-            msg.sender,
-            address(this),
-            _stakeamount
-        );
-        bonusPercentage = rewardPercentage / 2;
-        stakebalance =
-            _stakeamount +
-            (_stakeamount * (bonusPercentage / 1000)) +
-            profit;
-        rewardPoolNewBal = rewardPoolOldBal - stakebalance;
-        rewardInPercentage();
-        activeStake[msg.sender] = activeStake[msg.sender] + 1;
-
-        emit StakeEvent(activeStake[msg.sender], address(this), _stakeamount);
+        TokenI(tokenAddress).transferFrom(user, address(this), _stakeamount);
+        activeStake[user] = activeStake[user] + 1;
+        emit StakeEvent(activeStake[user], address(this), _stakeamount);
         return true;
     }
 
@@ -266,90 +260,61 @@ contract Stake is Ownable {
      * result : If unstake happen before time duration it will set 50% penalty on profited amount else it will sent you all stake amount,
      *          to the staking wallet.
      */
-    function unStake(uint256 _stakeid) public returns (bool) {
-        uint256 totalAmt;
-        uint256 profit;
+    function unstake(uint256 _stakeid) public returns (bool) {
         address user = msg.sender;
-        uint256 locktime = staking[user][_stakeid]._stakingEndtime;
-        uint256 oneWeekLocktime = staking[user][_stakeid]._stakingStarttime +
-            oneweek;
-        uint256 twoWeekLocktime = staking[user][_stakeid]._stakingStarttime +
-            oneweek *
-            2;
-        uint256 threeWeekLocktime = staking[user][_stakeid]._stakingStarttime +
-            oneweek *
-            3;
         require(
             staking[user][_stakeid]._amount > 0,
-            "Wallet Address is not Exist!"
+            "Stake instance does not exist!"
         );
         require(_stakeid > 0, "Please set valid stakeid!");
-
-        if (block.timestamp > locktime) {
-            if (block.timestamp > locktime + oneweek) {
-                profit =
-                    staking[user][_stakeid]._profit +
-                    (staking[user][_stakeid]._amount / 2);
-                totalAmt = staking[user][_stakeid]._amount + profit;
-            } else {
-                rewardPoolOldBal = rewardPoolNewBal;
-                profit = staking[user][_stakeid]._profit;
-                totalAmt = staking[user][_stakeid]._amount + profit;
-                uint stakeBack = (staking[user][_stakeid]._amount / 2);
-                stakebalance = stakebalance - stakeBack;
-                rewardPoolNewBal = rewardPoolOldBal + stakebalance;
-            }
-        } else if (block.timestamp > oneWeekLocktime) {
-            rewardPoolOldBal = rewardPoolNewBal;
-            profit = (staking[user][_stakeid]._profit * 25) / 100;
-            uint penalty = (staking[user][_stakeid]._amount * 5) / 100;
-            uint totstakeAmt = staking[user][_stakeid]._amount - penalty;
-            uint stakeBack = penalty + (staking[user][_stakeid]._profit * 75);
-            stakebalance = stakebalance - stakeBack;
-            rewardPoolNewBal = rewardPoolOldBal + stakebalance;
-            totalAmt = totstakeAmt + profit;
-        } else if (block.timestamp > twoWeekLocktime) {
-            rewardPoolOldBal = rewardPoolNewBal;
-            profit = (staking[user][_stakeid]._profit * 35) / 100;
-            uint penalty = (staking[user][_stakeid]._amount * 5) / 100;
-            uint totstakeAmt = staking[user][_stakeid]._amount - penalty;
-            uint stakeBack = penalty + (staking[user][_stakeid]._profit * 65);
-            stakebalance = stakebalance - stakeBack;
-            rewardPoolNewBal = rewardPoolOldBal + stakebalance;
-            totalAmt = totstakeAmt + profit;
-        } else if (block.timestamp > threeWeekLocktime) {
-            rewardPoolOldBal = rewardPoolNewBal;
-            profit = (staking[user][_stakeid]._profit * 40) / 100;
-            uint penalty = (staking[user][_stakeid]._amount * 5) / 100;
-            uint totstakeAmt = staking[user][_stakeid]._amount - penalty;
-            uint stakeBack = penalty + (staking[user][_stakeid]._profit * 60);
-            stakebalance = stakebalance - stakeBack;
-            rewardPoolNewBal = rewardPoolOldBal + stakebalance;
-            totalAmt = totstakeAmt + profit;
+        uint256 userAmount = staking[user][_stakeid]._amount;
+        uint256 withdrawAmount = viewWithdrawAmount(_stakeid);
+        if (withdrawAmount >= userAmount) {
+            _updateRewards(withdrawAmount - userAmount, true);
+        } else {
+            _updateRewards(userAmount - withdrawAmount, false);
         }
+
         activeStake[user] = activeStake[user] - 1;
         lastStake = activeStake[user];
 
         staking[user][_stakeid]._id = staking[user][lastStake]._id;
         staking[user][_stakeid]._amount = staking[user][lastStake]._amount;
-        staking[user][_stakeid]._stakingStarttime = staking[user][lastStake]
-            ._stakingStarttime;
-        staking[user][_stakeid]._stakingEndtime = staking[user][lastStake]
-            ._stakingEndtime;
-        staking[user][_stakeid]._profit = staking[user][lastStake]._profit;
-        staking[user][_stakeid]._RewardPercentage = staking[user][lastStake]
-            ._RewardPercentage;
+        staking[user][_stakeid]._startTime = staking[user][lastStake]
+            ._startTime;
+        staking[user][_stakeid]._claimTime = staking[user][lastStake]
+            ._claimTime;
+        staking[user][_stakeid]._APY = staking[user][lastStake]._APY;
 
         staking[user][lastStake]._id = 0;
         staking[user][lastStake]._amount = 0;
-        staking[user][lastStake]._stakingStarttime = 0;
-        staking[user][lastStake]._stakingEndtime = 0;
-        staking[user][lastStake]._profit = 0;
-        staking[user][lastStake]._RewardPercentage = 0;
+        staking[user][lastStake]._startTime = 0;
+        staking[user][lastStake]._claimTime = 0;
+        staking[user][_stakeid]._APY = 0;
 
-        TokenI(tokenAddress).transfer(user, totalAmt);
-        emit unstake(_stakeid, user, totalAmt);
+        TokenI(tokenAddress).transfer(user, withdrawAmount);
+        emit Unstake(_stakeid, user, withdrawAmount);
 
+        return true;
+    }
+
+    /**
+     * @dev claims accrued rewards
+     */
+
+    function claim(uint256 _stakeid) public returns (bool) {
+        address user = msg.sender;
+        require(_stakeid >= 0, "Please set valid stakeid!");
+        require(activeStake[user] <= _stakeid, "Stake instance does not exist");
+        require(
+            staking[user][_stakeid]._amount > 0,
+            "Stake instance does not exist"
+        );
+        uint256 rewards = currentRewards(user, _stakeid);
+        require(rewards > 0, "Cannot claim non zero amount");
+        TokenI(tokenAddress).transfer(user, rewards);
+        staking[user][_stakeid]._claimTime = block.timestamp;
+        emit Claim(_stakeid, user, rewards);
         return true;
     }
 
@@ -360,52 +325,40 @@ contract Stake is Ownable {
     function viewWithdrawAmount(
         uint256 _stakeid
     ) public view returns (uint256) {
-        uint256 totalAmt;
-        uint256 profit;
         address user = msg.sender;
-        uint256 locktime = staking[user][_stakeid]._stakingEndtime;
+        uint256 currentTime = block.timestamp;
+        uint256 startTime = staking[user][_stakeid]._startTime;
+        uint256 locktime = startTime + oneMonth;
+        uint256 oneWeekLocktime = startTime + oneWeek;
+        uint256 twoWeekLocktime = startTime + oneWeek * 2;
+        uint256 threeWeekLocktime = startTime + oneWeek * 3;
+        uint256 penalty = (staking[user][_stakeid]._amount * 5) / 100;
+        uint256 userAmount = staking[user][_stakeid]._amount;
+        uint256 userRewards = currentRewards(user, _stakeid);
+        uint256 withdrawAmount = userAmount;
+        uint256 poolModifier = 0;
+        bool isPositive = true;
+        require(userAmount > 0, "Stake instance does not exist!");
+        require(_stakeid >= 0, "Please set valid stakeid!");
 
-        uint256 oneWeekLocktime = staking[user][_stakeid]._stakingStarttime +
-            oneweek;
-        uint256 twoWeekLocktime = staking[user][_stakeid]._stakingStarttime +
-            oneweek *
-            2;
-        uint256 threeWeekLocktime = staking[user][_stakeid]._stakingStarttime +
-            oneweek *
-            3;
-        require(
-            staking[user][_stakeid]._amount > 0,
-            "Wallet Address is not Exist"
-        );
-
-        if (block.timestamp > locktime) {
-            if (block.timestamp > locktime + oneweek) {
-                profit =
-                    staking[user][_stakeid]._profit +
-                    (staking[user][_stakeid]._amount / 2);
-                totalAmt = staking[user][_stakeid]._amount + profit;
-            } else {
-                profit = staking[user][_stakeid]._profit;
-                totalAmt = staking[user][_stakeid]._amount + profit;
-            }
-        } else if (block.timestamp > oneWeekLocktime) {
-            profit = (staking[user][_stakeid]._profit * 25) / 100;
-            uint penalty = (staking[user][_stakeid]._amount * 5) / 100;
-            uint totstakeAmt = staking[user][_stakeid]._amount - penalty;
-            totalAmt = totstakeAmt + profit;
-        } else if (block.timestamp > twoWeekLocktime) {
-            profit = (staking[user][_stakeid]._profit * 35) / 100;
-            uint penalty = (staking[user][_stakeid]._amount * 5) / 100;
-            uint totstakeAmt = staking[user][_stakeid]._amount - penalty;
-            totalAmt = totstakeAmt + profit;
-        } else if (block.timestamp > threeWeekLocktime) {
-            profit = (staking[user][_stakeid]._profit * 40) / 100;
-            uint penalty = (staking[user][_stakeid]._amount * 5) / 100;
-            uint totstakeAmt = staking[user][_stakeid]._amount - penalty;
-            totalAmt = totstakeAmt + profit;
+        if (currentTime < oneWeekLocktime) {
+            poolModifier += penalty;
+            isPositive = false;
+        } else if (currentTime < twoWeekLocktime) {
+            poolModifier += (userRewards * 25) / 100;
+        } else if (currentTime < threeWeekLocktime) {
+            poolModifier += (userRewards * 35) / 100;
+        } else if (currentTime < locktime) {
+            poolModifier += (userRewards * 40) / 100;
+        } else {
+            poolModifier += userRewards;
         }
-
-        return totalAmt;
+        if (isPositive) {
+            withdrawAmount += poolModifier;
+        } else {
+            withdrawAmount -= poolModifier;
+        }
+        return withdrawAmount;
     }
 
     /**
@@ -414,14 +367,13 @@ contract Stake is Ownable {
      */
     function viewPenalty(uint256 _stakeid) public view returns (uint256) {
         address user = msg.sender;
-        uint256 locktime = staking[user][_stakeid]._stakingEndtime;
+        uint256 penaltyTime = staking[user][_stakeid]._startTime + oneWeek;
         uint256 penalty = 0;
         require(
             staking[user][_stakeid]._amount > 0,
-            "Wallet Address is not Exist"
+            "Wallet instance does not exist"
         );
-
-        if (block.timestamp < locktime) {
+        if (block.timestamp < penaltyTime) {
             penalty = (staking[user][_stakeid]._amount * 5) / 100;
         }
         return penalty;
