@@ -232,7 +232,13 @@ contract Stake is Ownable {
         uint256 userAmount = staking[user][_stakeid]._amount;
         uint256 userAPY = staking[user][_stakeid]._APY;
         if (currentTime >= locktime) {
-            uint256 timeDifference = userClaimTime - userStartTime;
+            uint256 timeDifference = 0;
+            if (userClaimTime <= userStartTime) {
+                timeDifference = 0;
+            } else {
+                timeDifference = userClaimTime - userStartTime;
+            }
+
             uint256 alpha = 0;
             uint256 beta = 0;
             if (timeDifference <= oneMonth) {
