@@ -172,12 +172,9 @@ contract Stake is Ownable {
     /**
      * @dev returns stake instance data
      */
-    function getStakingsWithRewards()
-        public
-        view
-        returns (_stakingWithReward[] memory)
-    {
-        address user = msg.sender;
+    function getStakingsWithRewards(
+        address user
+    ) public view returns (_stakingWithReward[] memory) {
         uint256 userActiveStake = activeStake[user];
         require(userActiveStake > 0, "No active stake instances found");
         _stakingWithReward[]
@@ -197,15 +194,16 @@ contract Stake is Ownable {
      * @dev return current pool balance.
      *
      */
-    function viewRewardPoolBalance() public view returns (uint) {
+    function viewRewardPoolBalance() public view returns (uint256) {
         return rewardPoolBal;
     }
 
     /**
      * @dev returns the number of stake instances tied to a wallet.
      */
-    function numberOfStakeInstances() public view returns (uint256) {
-        address user = msg.sender;
+    function numberOfStakeInstances(
+        address user
+    ) public view returns (uint256) {
         uint256 userActiveStake = activeStake[user];
         return userActiveStake;
     }
@@ -216,7 +214,7 @@ contract Stake is Ownable {
     function currentRewards(
         address user,
         uint256 _stakeid
-    ) public view returns (uint) {
+    ) public view returns (uint256) {
         require(_stakeid >= 0, "Please set valid stakeid!");
         require(_stakeid < activeStake[user], "Stake instance does not exist");
         uint32 oneMonth = 30 * 24 * 60 * 60;
@@ -310,7 +308,7 @@ contract Stake is Ownable {
         require(_stakeid >= 0, "Please set valid stakeid!");
         require(_stakeid < activeStake[user], "Stake instance does not exist");
         uint256 userAmount = staking[user][_stakeid]._amount;
-        uint256 withdrawAmount = viewWithdrawAmount(_stakeid);
+        uint256 withdrawAmount = viewWithdrawAmount(user, _stakeid);
         uint256 userActiveStake = activeStake[user];
         uint256 lastStake = userActiveStake - 1;
         require(
@@ -367,9 +365,9 @@ contract Stake is Ownable {
      * parameters : _stakeid is active stake ids which is getting from activeStake-
      */
     function viewWithdrawAmount(
+        address user,
         uint256 _stakeid
     ) public view returns (uint256) {
-        address user = msg.sender;
         uint256 userActiveStake = activeStake[user];
         require(_stakeid >= 0, "Please set valid stakeid!");
         require(_stakeid < userActiveStake, "Stake instance does not exist");
@@ -408,8 +406,10 @@ contract Stake is Ownable {
      * @dev To know Penalty amount, if you unstake before locktime
      * parameters : _stakeid is active stake ids which is getting from activeStake-
      */
-    function viewPenalty(uint256 _stakeid) public view returns (uint256) {
-        address user = msg.sender;
+    function viewPenalty(
+        address user,
+        uint256 _stakeid
+    ) public view returns (uint256) {
         uint256 userActiveStake = activeStake[user];
         require(_stakeid >= 0, "Please set valid stakeid!");
         require(_stakeid < userActiveStake, "Stake instance does not exist");
@@ -419,10 +419,6 @@ contract Stake is Ownable {
             60 *
             60;
         uint256 penalty = 0;
-        require(
-            staking[user][_stakeid]._amount > 0,
-            "Wallet instance does not exist"
-        );
         if (block.timestamp < penaltyTime) {
             penalty = (staking[user][_stakeid]._amount * 5) / 100;
         }
