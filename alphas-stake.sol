@@ -218,7 +218,6 @@ contract Stake is Ownable {
         require(_stakeid >= 0, "Please set valid stakeid!");
         require(_stakeid < activeStake[user], "Stake instance does not exist");
         uint32 oneMonth = 30 * 24 * 60 * 60;
-        uint32 oneYear = 365 * 24 * 60 * 60;
         uint256 currentTime = block.timestamp;
         uint256 rewards = 0;
         uint256 locktime = staking[user][_stakeid]._startTime + oneMonth;
@@ -231,17 +230,16 @@ contract Stake is Ownable {
         uint256 userClaimTime = staking[user][_stakeid]._claimTime;
         uint256 userAmount = staking[user][_stakeid]._amount;
         uint256 userAPY = staking[user][_stakeid]._APY;
+        uint256 gamma = 0;
         if (currentTime >= locktime) {
             uint256 timeDifference = 0;
+            uint256 alpha = 0;
+            uint256 beta = 0;
             if (userClaimTime <= userStartTime) {
                 timeDifference = 0;
             } else {
                 timeDifference = userClaimTime - userStartTime;
             }
-
-            uint256 alpha = 0;
-            uint256 beta = 0;
-            uint256 gamma = 0;
             if (timeDifference <= oneMonth) {
                 alpha = timeDifference;
             } else {
@@ -257,15 +255,14 @@ contract Stake is Ownable {
                 (userAmount *
                     userAPY *
                     ((oneMonth - alpha) + (gamma * 3) / 2)) /
-                (100 * oneYear);
+                (100 * 365 * 24 * 60 * 60);
         } else if (currentTime >= oneWeekLocktime) {
-            uint256 gamma = 0;
             if (currentTime <= userClaimTime) {
                 gamma = 0;
             } else {
                 gamma = currentTime - userClaimTime;
             }
-            rewards = (userAmount * userAPY * gamma) / (100 * oneYear);
+            rewards = (userAmount * userAPY * gamma) / (100 * 365 * 24 * 60 * 60);
         }
         return rewards;
     }
