@@ -241,23 +241,31 @@ contract Stake is Ownable {
 
             uint256 alpha = 0;
             uint256 beta = 0;
+            uint256 gamma = 0;
             if (timeDifference <= oneMonth) {
                 alpha = timeDifference;
             } else {
                 alpha = oneMonth;
                 beta = timeDifference - oneMonth;
             }
+            if (currentTime <= locktime + beta) {
+                gamma = 0;
+            } else {
+                gamma = currentTime - (locktime + beta);
+            }
             rewards =
                 (userAmount *
                     userAPY *
-                    ((oneMonth - alpha) +
-                        ((currentTime - (locktime + beta)) * 3) /
-                        2)) /
+                    ((oneMonth - alpha) + (gamma * 3) / 2)) /
                 (100 * oneYear);
         } else if (currentTime >= oneWeekLocktime) {
-            rewards =
-                (userAmount * userAPY * (currentTime - userClaimTime)) /
-                (100 * oneYear);
+            uint256 gamma = 0;
+            if (currentTime <= userClaimTime) {
+                gamma = 0;
+            } else {
+                gamma = currentTime - userClaimTime;
+            }
+            rewards = (userAmount * userAPY * gamma) / (100 * oneYear);
         }
         return rewards;
     }
