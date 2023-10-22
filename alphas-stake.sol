@@ -104,7 +104,7 @@ contract Ownable {
 /**
  * @dev To Main Stake contract  .
  */
-contract Stake is Ownable {
+contract Alphastake is Ownable {
     struct _staking {
         uint256 _id;
         uint256 _startTime;
@@ -221,11 +221,7 @@ contract Stake is Ownable {
         uint256 currentTime = block.timestamp;
         uint256 rewards = 0;
         uint256 locktime = staking[user][_stakeid]._startTime + oneMonth;
-        uint256 oneWeekLocktime = staking[user][_stakeid]._startTime +
-            7 *
-            24 *
-            60 *
-            60;
+        uint256 oneYearDivisorAPY = 100 * 365 * 24 * 60 * 60;
         uint256 userStartTime = staking[user][_stakeid]._startTime;
         uint256 userClaimTime = staking[user][_stakeid]._claimTime;
         uint256 userAmount = staking[user][_stakeid]._amount;
@@ -255,14 +251,14 @@ contract Stake is Ownable {
                 (userAmount *
                     userAPY *
                     ((oneMonth - alpha) + (gamma * 3) / 2)) /
-                (100 * 365 * 24 * 60 * 60);
-        } else if (currentTime >= oneWeekLocktime) {
+                oneYearDivisorAPY;
+        } else {
             if (currentTime <= userClaimTime) {
                 gamma = 0;
             } else {
                 gamma = currentTime - userClaimTime;
             }
-            rewards = (userAmount * userAPY * gamma) / (100 * 365 * 24 * 60 * 60);
+            rewards = (userAmount * userAPY * gamma) / oneYearDivisorAPY;
         }
         return rewards;
     }
